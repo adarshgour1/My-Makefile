@@ -1,3 +1,12 @@
+#-----------------------------------------------------------------
+#if you are using C program
+#following Log statement will be helpful
+#define Log(msg, ...)  fprintf(stdout,"#%d:%s\n",__LINE__,__FILE__);   \
+                            fprintf(stdout,"DEBUG: " msg" \n",##__VA_ARGS__);
+#
+
+
+
 #
 # 'make'        build executable file 'main'
 # 'make clean'  removes all .o and executable files
@@ -15,39 +24,28 @@ CXXFLAGS	:= -std=c++17 -Wall -Wextra -g
 LFLAGS =
 
 # define output directory
-OUTPUT	:= output
+OUTPUT	:= $(PWD)/output
 
 # define source directory
-SRC		:= src
+SRC		:= $(PWD)/src
 
 # define source directory
-OBJ		:= obj
+OBJ		:= $(PWD)/obj
 
 # define include directory
-INCLUDE	:= include
+INCLUDE	:= $(PWD)/include
 
 # define lib directory
 LIB		:= lib
 
-ifeq ($(OS),Windows_NT)
-MAIN	:= main.exe
-SOURCEDIRS	:= $(SRC)
-OBJDIRS	:= $(OBJ)
-INCLUDEDIRS	:= $(INCLUDE)
-LIBDIRS		:= $(LIB)
-FIXPATH = $(subst /,\,$1)
-RM			:= del /q /f
-MD	:= mkdir
-else
 MAIN	:= main
-SOURCEDIRS	:= $(shell find $(SRC) -type d) 
-OBJDIRS	:= $(shell find $(OBJ) -type d) 
+SOURCEDIRS	:= $(shell find $(SRC) -type d)
+OBJDIRS		:= $(shell find $(OBJ) -type d)
 INCLUDEDIRS	:= $(shell find $(INCLUDE) -type d)
 LIBDIRS		:= $(shell find $(LIB) -type d)
 FIXPATH = $1
 RM = rm -f
 MD	:= mkdir -p
-endif
 
 # define any directories containing header files other than /usr/include
 INCLUDES	:= $(patsubst %,-I%, $(INCLUDEDIRS:%/=%))
@@ -56,42 +54,38 @@ INCLUDES	:= $(patsubst %,-I%, $(INCLUDEDIRS:%/=%))
 LIBS		:= $(patsubst %,-L%, $(LIBDIRS:%/=%))
 
 # define the C source files
-SOURCES		:= $(wildcard $(patsubst %,%/*.cpp, $(SOURCEDIRS)))
+SOURCES		:= $(shell find $(SOURCEDIRS)/* -maxdepth 1 | grep -v main)
+
 
 # define the C object files 
-OBJECTS	:= $(subst $(SOURCEDIRS),$(OBJDIRS),$(SOURCES:.cpp=.o))
+OBJECTS		:= $(SOURCES:$(SOURCEDIRS)/%.cpp=$(OBJDIRS)/%.o)
 
-#
-# The following part of the makefile is generic; it can be used to 
-# build any executable just by changing the definitions above and by
-# deleting dependencies appended to the file from 'make depend'
-#
 
-OUTPUTMAIN	:= $(call FIXPATH,$(OUTPUT)/$(MAIN))
+all: $(OBJECTS)
+	@tput setaf 1
+	@echo
+	@echo -----------------Generating Binaries------------------------------
+	@echo
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $(OUTPUT)/main.bin $(SOURCEDIRS)/main.cpp $(OBJECTS) $(LFLAGS) $(LIBS)
+	@echo
+	@echo -----------------All Binaries Generated--------------------------
+	@echo
+	@tput setaf 7
 
-all: $(OUTPUT) $(MAIN)
-	@echo Executing 'all' complete!
 
-$(OUTPUT):
-	$(MD) $(OUTPUT)
-
-$(MAIN): $(OBJECTS) 
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $(OUTPUTMAIN) $(OBJECTS) $(LFLAGS) $(LIBS)
-
-# this is a suffix replacement rule for building .o's from .c's
-# it uses automatic variables $<: the name of the prerequisite of
-# the rule(a .c file) and $@: the name of the target of the rule (a .o file) 
-# (see the gnu make manual section about automatic variables)
-
-$(OBJECTS) : $(SOURCES)
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -c  $< -o $@
+$(OBJECTS):$(SOURCES)
+	@tput setaf 27
+	@echo
+	@echo -----------------Generating Object Files------------------------------
+	@echo
+	@echo $< : $@
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $<  -o $@
+	@echo
+	@echo -----------------Object Files Generated------------------------------
+	@echo
+	@tput setaf 7
 
 .PHONY: clean
 clean:
-	$(RM) $(OUTPUTMAIN)
-	$(RM) $(call FIXPATH,$(OBJECTS))
+	$(RM) $(OBJDIRS)/*.o
 	@echo Cleanup complete!
-
-run: all
-	./$(OUTPUTMAIN)
-	@echo Executing 'run: all' complete!
