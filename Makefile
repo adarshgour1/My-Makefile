@@ -1,12 +1,3 @@
-#-----------------------------------------------------------------
-#if you are using C program
-#following Log statement will be helpful
-#define Log(msg, ...)  fprintf(stdout,"#%d:%s\n",__LINE__,__FILE__);   \
-                            fprintf(stdout,"DEBUG: " msg" \n",##__VA_ARGS__);
-#
-
-
-
 #
 # 'make'        build executable file 'main'
 # 'make clean'  removes all .o and executable files
@@ -18,34 +9,45 @@ CXX = g++
 # define any compile-time flags
 CXXFLAGS	:= -std=c++17 -Wall -Wextra -g
 
+# my lib added at compiler location
+ADARSH_LIB := G:\Mylibs\libLogger.a
+ADARSH_INCLUDE := -IG:\Mylibs\include
 # define library paths in addition to /usr/lib
 #   if I wanted to include libraries not in /usr/lib I'd specify
 #   their path using -Lpath, something like:
-LFLAGS =
-
+LFLAGS = 
 # define output directory
-OUTPUT	:= $(PWD)/output
+OUTPUT	:= output
 
 # define source directory
-SRC		:= $(PWD)/src
+SRC		:= src
 
 # define source directory
-OBJ		:= $(PWD)/obj
+OBJ	:= obj
 
 # define include directory
-INCLUDE	:= $(PWD)/include
+INCLUDE	:= include
 
 # define lib directory
 LIB		:= lib
 
+ifeq ($(OS),Windows_NT)
+MAIN	:= main.exe
+SOURCEDIRS	:= $(SRC)
+INCLUDEDIRS	:= $(INCLUDE)
+LIBDIRS		:= $(LIB)
+FIXPATH = $(subst /,\,$1)
+RM			:= del /q /f
+MD	:= mkdir
+else
 MAIN	:= main
 SOURCEDIRS	:= $(shell find $(SRC) -type d)
-OBJDIRS		:= $(shell find $(OBJ) -type d)
 INCLUDEDIRS	:= $(shell find $(INCLUDE) -type d)
 LIBDIRS		:= $(shell find $(LIB) -type d)
 FIXPATH = $1
 RM = rm -f
 MD	:= mkdir -p
+endif
 
 # define any directories containing header files other than /usr/include
 INCLUDES	:= $(patsubst %,-I%, $(INCLUDEDIRS:%/=%))
@@ -54,38 +56,48 @@ INCLUDES	:= $(patsubst %,-I%, $(INCLUDEDIRS:%/=%))
 LIBS		:= $(patsubst %,-L%, $(LIBDIRS:%/=%))
 
 # define the C source files
-SOURCES		:= $(shell find $(SOURCEDIRS)/* -maxdepth 1 | grep -v main)
-
+SOURCES		:= $(wildcard $(patsubst %,%/*.cpp, $(SOURCEDIRS)))
 
 # define the C object files 
-OBJECTS		:= $(SOURCES:$(SOURCEDIRS)/%.cpp=$(OBJDIRS)/%.o)
+OBJECTS		:= $(SOURCES:$(SRC)/%.cpp=$(OBJ)/%.o)
 
+#
+# The following part of the makefile is generic; it can be used to 
+# build any executable just by changing the definitions above and by
+# deleting dependencies appended to the file from 'make depend'
+#
 
-all: $(OBJECTS)
-	@tput setaf 1
-	@echo
-	@echo -----------------Generating Binaries------------------------------
-	@echo
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $(OUTPUT)/main.bin $(SOURCEDIRS)/main.cpp $(OBJECTS) $(LFLAGS) $(LIBS)
-	@echo
-	@echo -----------------All Binaries Generated--------------------------
-	@echo
-	@tput setaf 7
+OUTPUTMAIN	:= $(call FIXPATH,$(OUTPUT)/$(MAIN))
 
+all: $(OUTPUT) $(MAIN)
+	@echo Executing 'all' complete!
 
-$(OBJECTS):$(SOURCES)
-	@tput setaf 27
-	@echo
-	@echo -----------------Generating Object Files------------------------------
-	@echo
-	@echo $< : $@
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $<  -o $@
-	@echo
-	@echo -----------------Object Files Generated------------------------------
-	@echo
-	@tput setaf 7
+$(OUTPUT):
+	$(MD) $(OUTPUT)
+
+$(MAIN): $(OBJECTS) 
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $(ADARSH_INCLUDE) -o $(OUTPUTMAIN) $(OBJECTS) $(LFLAGS) $(LIBS)  $(ADARSH_LIB)
+
+# this is a suffix replacement rule for building .o's from .c's
+# it uses automatic variables $<: the name of the prerequisite of
+# the rule(a .c file) and $@: the name of the target of the rule (a .o file) 
+# (see the gnu make manual section about automatic variables)
+$(OBJ)/%.o:$(SRC)/%.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $(ADARSH_INCLUDE) -c $<  -o $@
 
 .PHONY: clean
 clean:
-	$(RM) $(OBJDIRS)/*.o
+	$(RM) $(OUTPUTMAIN)
+	$(RM) $(call FIXPATH,$(OBJECTS))
 	@echo Cleanup complete!
+
+run: all
+	./$(OUTPUTMAIN)
+	@echo Executing 'run: all' complete!
+
+config: 
+	$(MD) $(INCLUDE)
+	$(MD) $(SRC)
+	$(MD) $(OBJ)
+	$(MD) $(LIB)
+	$(MD) $(OUTPUT)
